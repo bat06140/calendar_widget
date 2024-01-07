@@ -1,0 +1,316 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Interactive Calendar</title>
+    <style>
+      @import url('https://fonts.googleapis.com/css2?family=Bebas+Neue&display=swap');
+
+      body {
+        margin: 0;
+        font-family: 'Bebas Neue';
+      }
+      #calendar {
+        text-align: center;
+        border-radius: 10px;
+        overflow: hidden;
+      }
+      #header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        background-color: black;
+        color: #fff;
+        height: 15%;
+        font-size: 6vh;
+        padding-left: 26px;
+        padding-right: 26px;
+      }
+      #prev,
+      #next,
+      #monthDisplay {
+        height: 100%;
+        display: inline-flex;
+        align-items: center;
+      }
+
+      #prev,
+      #next {
+        background: none;
+        color: inherit;
+        border: none;
+        padding: 0;
+        font: inherit;
+        cursor: pointer;
+        outline: inherit;
+      }
+
+      .calendar-grid {
+        display: grid;
+        width: 100%;
+        height: 100%;
+        grid-template-columns: repeat(7, 1fr); /* 7 columns */
+        grid-template-rows: repeat(7, 1fr); /* 7 rows */
+        padding: 8px;
+        box-sizing: border-box;
+      }
+      .calendar-cell {
+        width: 100%; /* Full width */
+        aspect-ratio: 1; /* Square aspect ratio */
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        color: black;
+      }
+
+      .today {
+        background-color: black;
+        color: #fff;
+        border-radius: 10px;
+      }
+      .other-month {
+        color: rgb(225, 225, 225);
+      }
+      .dialog {
+        font-family: Verdana, Geneva, Tahoma, sans-serif;
+
+        position: fixed;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        background-color: #fff;
+        border-radius: 10px; /* Rounded corners */
+        box-shadow: 0 0 10px rgba(0, 0, 0, 0.5);
+        z-index: 1000;
+        padding: 20px;
+        box-sizing: border-box;
+      }
+      .dialog-content {
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+      }
+      #monthSelect,
+      #yearSelect {
+        font-family: Verdana, Geneva, Tahoma, sans-serif;
+      }
+
+      .overlay {
+        display: none;
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background-color: rgba(0, 0, 0, 0.5);
+        z-index: 999;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="calendar">
+      <div id="header">
+        <button id="prev" class="auto-size-font" onclick="changeMonth(-1)"><</button>
+        <span id="monthDisplay" class="auto-size-font" onclick="openMonthYearDialog()"></span>
+        <button id="next" class="auto-size-font" onclick="changeMonth(1)">></button>
+      </div>
+
+      <div id="days" class="calendar-grid" />
+    </div>
+    <div id="overlay" class="overlay" onclick="closeDialog()"></div>
+
+    <div id="monthYearDialog" class="dialog" style="display: none">
+      <div class="dialog-content">
+        <div>
+          <!-- Years will be populated by JavaScript -->
+          <select id="monthSelect"></select>
+          <select id="yearSelect"></select>
+        </div>
+        <button id="confirmDate">Valider</button>
+      </div>
+    </div>
+    <script>
+      let currentMonth = new Date().getMonth();
+      let currentYear = new Date().getFullYear();
+
+      function generateCalendar(month, year) {
+        currentMonth = month;
+        currentYear = year;
+        // Sélectionner l'élément où les jours seront affichés
+        const daysElement = document.getElementById('days');
+        daysElement.innerHTML = '';
+        const daysOfWeek = ['LUN', 'MAR', 'MER', 'JEU', 'VEN', 'SAM', 'DIM'];
+        daysOfWeek.forEach(dayOfWeek => {
+          let day = document.createElement('div');
+          day.className = 'calendar-cell auto-size-font';
+          day.innerText = dayOfWeek;
+          daysElement.appendChild(day);
+        });
+        // Obtenir le premier jour du mois
+        let firstDay = new Date(year, month, 1).getDay();
+        firstDay = firstDay === 0 ? 6 : firstDay - 1; // Ajuster si la semaine commence le lundi
+
+        // Obtenir le dernier jour du mois
+        let lastDay = new Date(year, month + 1, 0).getDay();
+        lastDay = lastDay === 0 ? 6 : lastDay - 1;
+
+        // Obtenir le nombre de jours dans le mois
+        let daysInMonth = new Date(year, month + 1, 0).getDate();
+
+        // Calculer le nombre de jours à afficher pour le mois précédent
+        let daysFromPrevMonth = firstDay;
+
+        // Calculer le nombre de jours à afficher pour le mois suivant
+        let daysAfter = (7 - lastDay - 1) % 7;
+
+        // Total des cellules dans le calendrier
+        let totalCells = daysFromPrevMonth + daysInMonth + daysAfter;
+
+        // Remplir les jours du mois précédent
+        let prevMonthDays = new Date(year, month, 0).getDate();
+        for (let i = daysFromPrevMonth; i > 0; i--) {
+          let day = document.createElement('div');
+          day.className = 'calendar-cell auto-size-font other-month';
+          day.innerText = prevMonthDays - i + 1;
+          daysElement.appendChild(day);
+        }
+
+        // Remplir les jours du mois en cours
+        for (let i = 1; i <= daysInMonth; i++) {
+          let day = document.createElement('div');
+          day.className = 'calendar-cell auto-size-font';
+          if (i === new Date().getDate() && month === new Date().getMonth() && year === new Date().getFullYear()) {
+            day.classList.add('today'); // Marquer le jour actuel
+          }
+          day.innerText = i;
+          daysElement.appendChild(day);
+        }
+
+        // Remplir les jours du mois suivant
+        for (let i = 1; i <= daysAfter; i++) {
+          let day = document.createElement('div');
+          day.className = 'calendar-cell auto-size-font other-month';
+          day.innerText = i;
+          daysElement.appendChild(day);
+        }
+
+        // Mettre à jour l'affichage du mois et de l'année
+        document.getElementById('monthDisplay').innerText = `${months[month]} ${year}`;
+        adjustFontSize();
+      }
+
+      // Array pour les noms de mois
+      const months = [
+        'Janvier',
+        'Février',
+        'Mars',
+        'Avril',
+        'Mai',
+        'Juin',
+        'Juillet',
+        'Août',
+        'Septembre',
+        'Octobre',
+        'Novembre',
+        'Décembre',
+      ];
+
+      function changeMonth(step) {
+        currentMonth += step;
+        if (currentMonth < 0) {
+          currentMonth = 11;
+          currentYear--;
+        } else if (currentMonth > 11) {
+          currentMonth = 0;
+          currentYear++;
+        }
+        generateCalendar(currentMonth, currentYear);
+      }
+
+      function openMonthYearDialog() {
+        // Populate year dropdown if it's not already populated
+        const yearSelect = document.getElementById('yearSelect');
+        if (yearSelect.length === 0) {
+          for (let i = currentYear - 10; i <= currentYear + 10; i++) {
+            let option = new Option(i, i);
+            yearSelect.appendChild(option);
+          }
+        }
+        const monthSelect = document.getElementById('monthSelect');
+        if (monthSelect.length === 0) {
+          for (let i = 0; i < months.length; i++) {
+            let option = new Option(months[i], i);
+            monthSelect.appendChild(option);
+          }
+        }
+
+        // Set current month and year as selected
+        document.getElementById('monthSelect').value = currentMonth.toString();
+        yearSelect.value = currentYear.toString();
+
+        // Show the dialog
+        document.getElementById('monthYearDialog').style.display = 'block';
+        document.getElementById('overlay').style.display = 'block';
+      }
+      function closeDialog() {
+        // Hide the dialog
+        document.getElementById('monthYearDialog').style.display = 'none';
+        document.getElementById('overlay').style.display = 'none';
+      }
+
+      // Attach event listener to the month and year display
+      document.getElementById('monthDisplay').addEventListener('click', openMonthYearDialog);
+
+      // Close the dialog if the overlay is clicked
+      document.getElementById('overlay').addEventListener('click', closeDialog);
+      document.getElementById('confirmDate').addEventListener('click', () => {
+        generateCalendar(document.getElementById('monthSelect').value, document.getElementById('yearSelect').value);
+      });
+
+      function adjustAspectRatio() {
+        const aspectRatio = 0.9; // Example aspect ratio, change as needed
+        const container = document.getElementById('calendar');
+        const windowWidth = window.innerWidth;
+        const windowHeight = window.innerHeight;
+        const windowRatio = windowWidth / windowHeight;
+
+        if (windowRatio > aspectRatio) {
+          // Window is wider than the desired aspect ratio
+          container.style.width = `${windowHeight * aspectRatio}px`;
+          container.style.height = `${windowHeight}px`;
+        } else {
+          // Window is taller than the desired aspect ratio
+          container.style.width = `${windowWidth}px`;
+          container.style.height = `${windowWidth / aspectRatio}px`;
+        }
+      }
+
+      // Initialiser le calendrier avec le mois et l'année actuels
+      window.onload = function () {
+        // Adjust on initial load
+        adjustAspectRatio();
+        generateCalendar(currentMonth, currentYear);
+      };
+
+      // Adjust on window resize
+      window.addEventListener('resize', () => {
+        adjustAspectRatio();
+        adjustFontSize();
+      });
+
+      function adjustFontSize() {
+        var elements = document.getElementsByClassName('auto-size-font');
+        for (var i = 0; i < elements.length; i++) {
+          const element = elements[i];
+          console.log('height', { element });
+          if (element.id === 'next' || element.id === 'prev') {
+            element.style.fontSize = element.clientHeight * 0.4 + 'px';
+          } else {
+            element.style.fontSize = element.clientHeight * 0.6 + 'px';
+          }
+        }
+      }
+    </script>
+  </body>
+</html>
